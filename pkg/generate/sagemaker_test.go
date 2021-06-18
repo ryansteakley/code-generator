@@ -16,10 +16,10 @@ package generate_test
 import (
 	"testing"
 
+	"github.com/aws-controllers-k8s/code-generator/pkg/generate/code"
+	"github.com/aws-controllers-k8s/code-generator/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/aws-controllers-k8s/code-generator/pkg/testutil"
 )
 
 func TestSageMaker_ARN_Field_Override(t *testing.T) {
@@ -65,4 +65,76 @@ func TestSageMaker_ARN_Field_Override(t *testing.T) {
 	// for the resource
 	assert.Equal(true, crd.IsPrimaryARNField("JobDefinitionArn"))
 
+}
+func TestSageMaker_Error_Prefix_Message(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	g := testutil.NewGeneratorForService(t, "sagemaker")
+
+	crds, err := g.GetCRDs()
+	require.Nil(err)
+
+	crd := getCRDByName("TrainingJob", crds)
+	require.NotNil(crd)
+
+	require.NotNil(crd.Ops)
+
+	assert.NotNil(crd.Ops.ReadOne)
+
+	// "DescribeTrainingJob":{
+	// 	"name":"DescribeTrainingJob",
+	// 	"http":{
+	// 	  "method":"POST",
+	// 	  "requestUri":"/"
+	// 	},
+	// 	"input":{"shape":"DescribeTrainingJobRequest"},
+	// 	"output":{"shape":"DescribeTrainingJobResponse"},
+	// 	"errors":[
+	// 	  {"shape":"ResourceNotFound"}
+	// 	]
+	//   },
+
+	// Which does not indicate that the error is a 404 :( So, the logic in the
+	// CRD.ExceptionCode(404) method needs to get its override from the
+	// generate.yaml configuration file.
+	assert.Equal("ValidationException", crd.ExceptionCode(404))
+
+	// Validation Exception has prefix Requested resource not found.
+	assert.Equal("&& strings.HasPrefix(awsErr.Message(), \"Requested resource not found\") ", code.CheckExceptionMessageAffix(crd.Config(), crd, 404))
+}
+
+func TestSageMaker_Error_Suffix_Message(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	g := testutil.NewGeneratorForService(t, "sagemaker")
+
+	crds, err := g.GetCRDs()
+	require.Nil(err)
+
+	crd := getCRDByName("ModelPackageGroup", crds)
+	require.NotNil(crd)
+
+	require.NotNil(crd.Ops)
+	assert.NotNil(crd.Ops.ReadOne)
+
+	// 	"DescribeModelPackageGroup":{
+	// 	"name":"DescribeModelPackageGroup",
+	// 	"http":{
+	// 	  "method":"POST",
+	// 	  "requestUri":"/"
+	// 	},
+	// 	"input":{"shape":"DescribeModelPackageGroupInput"},
+	// 	"output":{"shape":"DescribeModelPackageGroupOutput"}
+	//   }
+
+	// Does not list an error however a ValidationException can occur
+	// Which does not indicate that the error is a 404 :( So, the logic in the
+	// CRD.ExceptionCode(404) method needs to get its override from the
+	// generate.yaml configuration file.
+	assert.Equal("ValidationException", crd.ExceptionCode(404))
+
+	// Validation Exception has suffix ModelPackageGroup arn:aws:sagemaker:/ does not exist
+	assert.Equal("&& strings.HasSuffix(awsErr.Message(), \"does not exist.\") ", code.CheckExceptionMessageAffix(crd.Config(), crd, 404))
 }

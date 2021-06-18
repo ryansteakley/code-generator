@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// {{ .CRD.Kind }}Spec defines the desired state of {{ .CRD.Kind }}
+{{ .CRD.Documentation }}
 type {{ .CRD.Kind }}Spec struct {
 	{{- range $fieldName, $field := .CRD.SpecFields }}
 	{{- if $field.ShapeRef }}
@@ -49,6 +49,9 @@ type {{ .CRD.Kind }}Status struct {
 // +kubebuilder:subresource:status
 {{- range $column := .CRD.AdditionalPrinterColumns }}
 // +kubebuilder:printcolumn:name="{{$column.Name}}",type={{$column.Type}},priority={{$column.Priority}},JSONPath=`{{$column.JSONPath}}`
+{{- end }}
+{{- if .CRD.PrintAgeColumn }}
+// +kubebuilder:printcolumn:name="Age",type="date",priority=0,JSONPath=".metadata.creationTimestamp"
 {{- end }}
 {{- if .CRD.ShortNames }}
 // +kubebuilder:resource:shortName={{ Join .CRD.ShortNames ";" }}

@@ -33,7 +33,7 @@ import (
 // Sample Output:
 //
 // && strings.HasPrefix(awsErr.Message(), "Could not find model")
-func CheckExceptionMessagePrefix(
+func CheckExceptionMessageAffix(
 	cfg *ackgenconfig.Config,
 	r *model.CRD,
 	httpStatusCode int,
@@ -44,6 +44,10 @@ func CheckExceptionMessagePrefix(
 		if ok && excConfig.MessagePrefix != nil {
 			return fmt.Sprintf("&& strings.HasPrefix(awsErr.Message(), \"%s\") ",
 				*excConfig.MessagePrefix)
+		}
+		if ok && excConfig.MessageSuffix != nil {
+			return fmt.Sprintf("&& strings.HasSuffix(awsErr.Message(), \"%s\") ",
+				*excConfig.MessageSuffix)
 		}
 	}
 	return ""

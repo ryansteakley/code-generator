@@ -14,6 +14,7 @@
 package model
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -104,6 +105,18 @@ func (r *CRD) SDKAPIPackageName() string {
 // type definition names conflict with generated names)
 func (r *CRD) TypeRenames() map[string]string {
 	return r.sdkAPI.GetTypeRenames(r.cfg)
+}
+
+// Documentation returns the base documentation string for the API formatted as
+// a Go code comment block
+func (r *CRD) Documentation() string {
+	docString := fmt.Sprintf("// %sSpec defines the desired state of %s.", r.Names.Original, r.Names.Original)
+	shape, ok := r.sdkAPI.API.Shapes[r.Names.Original]
+	if ok {
+		// Separate with a double newline to force a newline in the CRD base
+		docString += "\n//\n" + shape.Documentation
+	}
+	return docString
 }
 
 // HasShapeAsMember returns true if the supplied Shape name appears in *any*
@@ -352,6 +365,28 @@ func (r *CRD) SetOutputCustomMethodName(
 	return &resGenConfig.SetOutputCustomMethodName
 }
 
+// GetOutputWrapperFieldPath returns the JSON-Path of the output wrapper field
+// as *string for a given operation, if specified in generator config.
+func (r *CRD) GetOutputWrapperFieldPath(
+	op *awssdkmodel.Operation,
+) *string {
+	if op == nil {
+		return nil
+	}
+	if r.cfg == nil {
+		return nil
+	}
+	opConfig, found := r.cfg.Operations[op.Name]
+	if !found {
+		return nil
+	}
+
+	if opConfig.OutputWrapperFieldPath == "" {
+		return nil
+	}
+	return &opConfig.OutputWrapperFieldPath
+}
+
 // GetCustomImplementation returns custom implementation method name for the
 // supplied operation as specified in generator config
 func (r *CRD) GetCustomImplementation(
@@ -400,7 +435,7 @@ func (r *CRD) SpecIdentifierField() *string {
 		r.Names.Original + "Name",
 		r.Names.Original + "Id",
 	}
-	for memberName := range r.SpecFields {
+	for _, memberName := range r.SpecFieldNames() {
 		if util.InStrings(memberName, lookup) {
 			return &r.SpecFields[memberName].Names.Camel
 		}
@@ -424,6 +459,12 @@ func (r *CRD) GetResourcePrintOrderByName() string {
 		return "name"
 	}
 	return orderBy
+}
+
+// PrintAgeColumn returns whether the code generator should append 'Age'
+// kubebuilder:printcolumn comment marker
+func (r *CRD) PrintAgeColumn() bool {
+	return r.cfg.GetResourcePrintAddAgeColumn(r.Names.Camel)
 }
 
 // CustomUpdateMethodName returns the name of the custom resourceManager method
